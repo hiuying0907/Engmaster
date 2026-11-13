@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#2C5E4F" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="LexiNote" />
+  <title>LexiNote · 英文生字遺忘曲線筆記</title>
+  <!-- Dynamic App Icons injected via JS -->
+  <link id="app-favicon" rel="icon" type="image/png" />
+  <link id="app-touch-icon" rel="apple-touch-icon" />
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Inter"', '"Noto Sans TC"', 'sans-serif'],
+          },
+          colors: {
+            cream: '#FAF9F6',
+            card: '#FFFFFF',
+            borderLight: '#EAE8E3',
+            sage: {
+              50: '#F1F6F4',
+              100: '#DCE9E4',
+              500: '#3B7A67',
+              600: '#2C5E4F',
+              700: '#1F4439',
+            },
+            ink: {
+              primary: '#1B221F',
+              secondary: '#56615C',
+              muted: '#8A948F',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Clean Minimalist Aesthetic & 3D Card Flip */
+    body {
+      background-color: #FAF9F6;
+      color: #1E2420;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+
+    .transform-style-3d {
+      transform-style: preserve-3d;
+      transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .backface-hidden {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+
+    .rotate-y-180 {
+      transform: rotateY(180deg);
+    }
+
+    /* Hide scrollbar for clean horizontal pills */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Subtle safe area padding for mobile */
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom, 16px);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-sage-100 selection:text-sage-700">
+
+  <!-- Toast Notification Banner (Replaces alert) -->
+  <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 transform -translate-y-2 max-w-[90vw]">
+    <div id="toast-content" class="bg-ink-primary text-white text-sm font-medium px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2">
+      <i data-lucide="check-circle-2" class="w-4 h-4 text-sage-100 shrink-0"></i>
+      <span id="toast-message">已儲存</span>
+    </div>
+  </div>
+
+  <!-- Top Header -->
+  <header class="sticky top-0 z-30 bg-cream/90 backdrop-blur-md border-b border-borderLight px-4 py-3.5">
+    <div class="max-w-lg mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-sage-600 text-white flex items-center justify-center shadow-sm">
+          <i data-lucide="book-open-check" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-bold tracking-tight text-ink-primary leading-none">LexiNote</h1>
+          <p class="text-[11px] text-ink-muted mt-0.5">遺忘曲線生字筆記</p>
+        </div>
+      </div>
+
+      <!-- Streak & Accent Switcher -->
+      <div class="flex items-center gap-2">
+        <button onclick="toggleAccent()" id="accent-btn" title="切換英式/美式發音" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white border border-borderLight text-ink-secondary hover:border-sage-500 transition flex items-center gap-1 shadow-2xs">
+          <i data-lucide="volume-2" class="w-3.5 h-3.5 text-sage-600"></i>
+          <span id="accent-label">US 美式</span>
+        </button>
+        <div class="flex items-center gap-1 bg-sage-50 border border-sage-100 text-sage-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold" title="連續學習天數">
+          <i data-lucide="flame" class="w-3.5 h-3.5 text-amber-500 fill-amber-500"></i>
+          <span id="streak-count">1</span><span>天</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 w-full max-w-lg mx-auto px-4 pt-4 pb-28">
+
+    <!-- ==================== TAB 1: FLASHCARDS (SRS 溫習) ==================== -->
+    <section id="view-review" class="space-y-4">
+      <!-- Progress Summary Strip -->
+      <div class="bg-white border border-borderLight rounded-2xl p-3.5 flex items-center justify-between shadow-2xs">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-sage-50 text-sage-600 flex items-center justify-center font-bold text-sm" id="due-badge-circle">
+            0
+          </div>
+          <div>
+            <p class="text-xs text-ink-muted font-medium">今日待溫習生字</p>
+            <p class="text-sm font-semibold text-ink-primary" id="review-status-text">準備好開始溫習！</p>
+          </div>
+        </div>
+        <button onclick="practiceAllMode()" id="practice-extra-btn" class="hidden text-xs font-medium text-sage-600 bg-sage-50 hover:bg-sage-100 px-3 py-2 rounded-xl transition">
+          額外溫習
+        </button>
+      </div>
+
+      <!-- Active Flashcard Container -->
+      <div id="flashcard-stage" class="hidden space-y-4">
+        <div class="perspective-1000 w-full">
+          <div id="flashcard-inner" onclick="flipCard()" class="transform-style-3d relative w-full min-h-[340px] sm:min-h-[370px] cursor-pointer select-none">
+            
+            <!-- CARD FRONT -->
+            <div class="backface-hidden absolute inset-0 bg-white border border-borderLight rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <span id="fc-status-pill" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sage-50 text-sage-600">新學單字</span>
+                  <span id="fc-front-pos" class="text-[11px] font-semibold px-2 py-1 rounded-full bg-cream border border-borderLight text-ink-secondary">n.</span>
+                </div>
+                <button onclick="event.stopPropagation(); speakCurrentWord()" class="p-2.5 rounded-full bg-cream hover:bg-sage-50 text-ink-primary hover:text-sage-600 transition border border-borderLight" aria-label="朗讀單字">
+                  <i data-lucide="volume-2" class="w-5 h-5"></i>
+                </button>
+              </div>
+
+              <div class="text-center my-auto py-6">
+                <h2 id="fc-word" class="text-3xl sm:text-4xl font-bold tracking-tight text-ink-primary break-words">serendipity</h2>
+                <p id="fc-ipa" class="text-sm text-ink-muted font-mono mt-2">/ˌser.ənˈdɪp.ə.ti/</p>
+              </div>
+
+              <div class="text-center">
+                <p class="text-xs text-ink-muted flex items-center justify-center gap-1.5">
+                  <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+                  點擊卡片查看解釋與例句
+                </p>
+              </div>
+            </div>
+
+            <!-- CARD BACK -->
+            <div class="backface-hidden rotate-y-180 absolute inset-0 bg-white border border-borderLight rounded-3xl p-6 shadow-sm flex flex-col justify-between overflow-y-auto">
+              <div>
+                <div class="flex items-start justify-between gap-2 pb-3 border-b border-borderLight">
+                  <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <h3 id="fc-back-word" class="text-xl font-bold text-ink-primary">serendipity</h3>
+                      <span id="fc-pos" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-sage-50 text-sage-700 border border-sage-100">n.</span>
+                    </div>
+                    <p id="fc-back-ipa" class="text-xs text-ink-muted font-mono mt-0.5">/ˌser.ənˈdɪp.ə.ti/</p>
+                  </div>
+                  <button onclick="event.stopPropagation(); speakCurrentWord()" class="p-2 rounded-full bg-cream hover:bg-sage-50 text-ink-primary transition border border-borderLight shrink-0">
+                    <i data-lucide="volume-2" class="w-4 h-4"></i>
+                  </button>
+                </div>
+
+                <!-- Meaning -->
+                <div class="mt-4">
+                  <span class="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">中文解釋</span>
+                  <p id="fc-meaning" class="text-lg font-semibold text-ink-primary mt-1 leading-snug">意外發現珍奇事物的運氣；機緣巧合</p>
+                  <p id="fc-en-def" class="text-xs text-ink-secondary mt-1 italic leading-relaxed"></p>
+                </div>
+
+                <!-- Example Sentence -->
+                <div class="mt-3.5 bg-cream rounded-2xl p-3.5 border border-borderLight">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[11px] font-semibold text-ink-muted">實用例句</span>
+                    <button onclick="event.stopPropagation(); speakCurrentExample()" class="text-xs text-sage-600 hover:text-sage-700 font-medium flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white border border-borderLight">
+                      <i data-lucide="volume-1" class="w-3.5 h-3.5"></i> 讀例句
+                    </button>
+                  </div>
+                  <p id="fc-example" class="text-sm font-medium text-ink-primary leading-relaxed">Finding that rare book in a tiny alley shop was pure serendipity.</p>
+                  <p id="fc-example-zh" class="text-xs text-ink-secondary mt-1.5 leading-relaxed">喺一條小巷鋪頭搵到嗰本罕見嘅書，純屬機緣巧合。</p>
+                </div>
+        <!-- Word Input + Free Dictionary Lookup Button -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-ink-secondary">英文生字或片語 <span class="text-rose-500">*</span></label>
+          <div class="flex gap-2">
+            <input type="text" id="input-word" placeholder="例如：meticulous" class="flex-1 bg-cream border border-borderLight rounded-xl px-3.5 py-2.5 text-base font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-sage-500 transition" />
+            <button type="button" id="dict-autofill-btn" onclick="autoFillFromDictionary()" class="px-3.5 py-2.5 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-2xs transition active:scale-95 disabled:opacity-60">
+              <i data-lucide="book-open" class="w-4 h-4"></i>
+              <span id="dict-btn-text">自動查詢詞典</span>
+            </button>
+          </div>
+          <p class="text-[11px] text-ink-muted">輸入英文單字後撳「自動查詢詞典」，免費自動抓取音標、詞性、中文解釋同例句。</p>
+        </div>
+
+              <div class="text-center pt-3">
+                <span class="text-[11px] text-ink-muted">請根據記憶程度選擇下方按鈕</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Flip Hint Button (Before Flip) -->
+        <div id="flip-prompt-area">
+          <button onclick="flipCard()" class="w-full py-3.5 rounded-2xl bg-sage-600 hover:bg-sage-700 text-white font-semibold text-sm shadow-sm transition active:scale-[0.99]">
+            顯示答案
+          </button>
+        </div>
+
+        <!-- SRS Rating Buttons (After Flip) -->
+        <div id="srs-controls" class="hidden grid grid-cols-4 gap-2">
+          <button onclick="rateCard(1)" class="flex flex-col items-center justify-center py-3 px-1 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 transition active:scale-95">
+            <span class="text-xs font-bold">忘記</span>
+            <span id="int-1" class="text-[10px] opacity-80 mt-0.5">1 分鐘後</span>
+          </button>
+          <button onclick="rateCard(2)" class="flex flex-col items-center justify-center py-3 px-1 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 transition active:scale-95">
+            <span class="text-xs font-bold">困難</span>
+            <span id="int-2" class="text-[10px] opacity-80 mt-0.5">12 小時</span>
+          </button>
+          <button onclick="rateCard(3)" class="flex flex-col items-center justify-center py-3 px-1 rounded-2xl bg-sage-50 hover:bg-sage-100 border border-sage-200 text-sage-700 transition active:scale-95">
+            <span class="text-xs font-bold">記得</span>
+            <span id="int-3" class="text-[10px] opacity-80 mt-0.5">1 天後</span>
+          </button>
+          <button onclick="rateCard(4)" class="flex flex-col items-center justify-center py-3 px-1 rounded-2xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 transition active:scale-95">
+            <span class="text-xs font-bold">太易</span>
+            <span id="int-4" class="text-[10px] opacity-80 mt-0.5">4 天後</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty / All Caught Up State -->
+      <div id="review-complete-state" class="hidden bg-white border border-borderLight rounded-3xl p-8 text-center space-y-4 shadow-2xs">
+        <div class="w-16 h-16 rounded-full bg-sage-50 text-sage-600 flex items-center justify-center mx-auto">
+          <i data-lucide="sparkles" class="w-8 h-8"></i>
+        </div>
+        <div class="space-y-1.5">
+          <h3 class="text-lg font-bold text-ink-primary">今日溫習任務完成！</h3>
+          <p class="text-sm text-ink-secondary leading-relaxed">你已經完成所有到期嘅生字溫習。系統會根據遺忘曲線，喺最佳時間提醒你再溫習。</p>
+        </div>
+        <div class="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
+          <button onclick="practiceAllMode()" class="px-5 py-2.5 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-sm font-semibold transition">
+            自由重溫全部生字
+          </button>
+          <button onclick="switchTab('add')" class="px-5 py-2.5 rounded-xl bg-cream hover:bg-sage-50 border border-borderLight text-ink-primary text-sm font-semibold transition">
+            + 新增更多生字
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: VOCABULARY LIST (生字庫) ==================== -->
+    <section id="view-vocab" class="hidden space-y-4">
+      <!-- Search Input -->
+      <div class="relative">
+        <i data-lucide="search" class="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+        <input type="text" id="vocab-search" oninput="renderVocabList()" placeholder="搜尋英文生字或中文解釋..." class="w-full bg-white border border-borderLight rounded-2xl pl-10 pr-4 py-3 text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-sage-500 transition shadow-2xs" />
+      </div>
+
+      <!-- Filter Pills -->
+      <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+        <button onclick="setVocabFilter('all')" id="filter-all" class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-semibold bg-sage-600 text-white transition shrink-0">
+          全部 (<span id="count-all">0</span>)
+        </button>
+        <button onclick="setVocabFilter('due')" id="filter-due" class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white border border-borderLight text-ink-secondary hover:border-sage-500 transition shrink-0">
+          待溫習 (<span id="count-due">0</span>)
+        </button>
+        <button onclick="setVocabFilter('learning')" id="filter-learning" class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white border border-borderLight text-ink-secondary hover:border-sage-500 transition shrink-0">
+          學習中 (<span id="count-learning">0</span>)
+        </button>
+        <button onclick="setVocabFilter('mastered')" id="filter-mastered" class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white border border-borderLight text-ink-secondary hover:border-sage-500 transition shrink-0">
+          已掌握 (<span id="count-mastered">0</span>)
+        </button>
+      </div>
+
+      <!-- Vocabulary Cards Container -->
+      <div id="vocab-list-container" class="space-y-3">
+        <!-- Dynamically populated -->
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: ADD / EDIT WORD (新增生字) ==================== -->
+    <section id="view-add" class="hidden space-y-4">
+      <div class="bg-white border border-borderLight rounded-3xl p-5 shadow-2xs space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 id="form-title" class="text-base font-bold text-ink-primary">新增英文生字</h2>
+          <button type="button" id="cancel-edit-btn" onclick="resetForm()" class="hidden text-xs text-ink-muted hover:text-ink-primary underline">取消編輯</button>
+        </div>
+
+        <input type="hidden" id="edit-word-id" value="" />
+
+        <!-- Word Input + AI Auto Fill Button -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-ink-secondary">英文生字或片語 <span class="text-rose-500">*</span></label>
+          <div class="flex gap-2">
+            <input type="text" id="input-word" placeholder="例如：resilient" class="flex-1 bg-cream border border-borderLight rounded-xl px-3.5 py-2.5 text-base font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-sage-500 transition" />
+            <button type="button" id="ai-autofill-btn" onclick="autoFillWithAI()" class="px-3.5 py-2.5 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-2xs transition active:scale-95 disabled:opacity-60">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span id="ai-btn-text">AI 自動補全</span>
+            </button>
+          </div>
+          <p class="text-[11px] text-ink-muted">輸入英文單字後撳「AI 自動補全」，自動幫你搵音標、詞性、解釋同例句。</p>
+        </div>
+
+        <!-- Part of Speech & IPA -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-ink-secondary">詞性 (Part of Speech)</label>
+            <input type="text" id="input-pos" placeholder="例如：adj. / n. / v." class="w-full bg-cream border border-borderLight rounded-xl px-3.5 py-2.5 text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-sage-500 transition" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-ink-secondary">音標 (IPA)</label>
+            <input type="text" id="input-ipa" placeholder="例如：/rɪˈzɪl.jənt/" class="w-full bg-cream border border-borderLight rounded-xl px-3.5 py-2.5 text-sm font-mono text-ink-primary focus:outline-none focus:bg-white focus:border-sage-500 transition" />
+          </div>
+        </div>
+
+        <!-- Traditional Chinese Meaning -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-ink-secondary">繁體中文解釋 <span class="text-rose-500">*</span></label>
+          <input type="text" id="input-meaning" placeholder="例如：一絲不苟嘅；極度細心嘅" class="w-full bg-cream border border-borderLight rounded-xl px-3.5 py-2.5 text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-sage-500 transition" />
+        </div>
+
+        <!-- English Definition (Optional) -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-ink-secondary">英文釋義 (English Definition)</label>
+          <input type="text" id="input-en-def" placeholder="例如：Showing great attention to detail; very careful and precise." class="w-full bg-cream border border-borderLight rounded-xl px-3.5 py-2.5 text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-sage-500 transition" />
+        </div>
+
+        <!-- Example Sentence (EN) -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-ink-secondary">英文例句</label>
+          <textarea id="input-example" rows="2" placeholder="例如：She is remarkably resilient and bounces back quickly from setbacks." class="w-full bg-cream border border-borderLight rounded-xl px-3.5 py-2.5 text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-sage-500 transition resize-none"></textarea>
+        </div>
+
+        <!-- Example Sentence Translation (ZH) -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-ink-secondary">例句中文翻譯</label>
+          <textarea id="input-example-zh" rows="2" placeholder="例如：佢非常有韌性，好快就可以從挫折中重新振作。" class="w-full bg-cream border border-borderLight rounded-xl px-3.5 py-2.5 text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-sage-500 transition resize-none"></textarea>
+        </div>
+
+        <!-- Save Button -->
+        <button type="button" onclick="saveWord()" class="w-full py-3.5 rounded-2xl bg-sage-600 hover:bg-sage-700 text-white font-semibold text-sm shadow-sm transition active:scale-[0.99] flex items-center justify-center gap-2">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span id="save-btn-text">儲存到生字庫</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: SETTINGS & STATS (設定與備份) ==================== -->
+    <section id="view-settings" class="hidden space-y-4">
+      <!-- Learning Overview Card -->
+      <div class="bg-white border border-borderLight rounded-3xl p-5 shadow-2xs space-y-4">
+        <h2 class="text-base font-bold text-ink-primary">學習統計總覽</h2>
+        <div class="grid grid-cols-3 gap-2.5 text-center">
+          <div class="bg-cream border border-borderLight rounded-2xl p-3">
+            <p class="text-2xl font-bold text-ink-primary" id="stat-total">0</p>
+            <p class="text-[11px] text-ink-muted mt-0.5">總生字量</p>
+          </div>
+          <div class="bg-sage-50 border border-sage-100 rounded-2xl p-3">
+            <p class="text-2xl font-bold text-sage-700" id="stat-mastered">0</p>
+            <p class="text-[11px] text-sage-600 mt-0.5">已掌握</p>
+          </div>
+          <div class="bg-cream border border-borderLight rounded-2xl p-3">
+            <p class="text-2xl font-bold text-amber-600" id="stat-streak">1</p>
+            <p class="text-[11px] text-ink-muted mt-0.5">連續天數</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Backup & Restore (Local Storage Management) -->
+      <div class="bg-white border border-borderLight rounded-3xl p-5 shadow-2xs space-y-4">
+        <div>
+          <h2 class="text-base font-bold text-ink-primary">分享 App 與詞庫備份</h2>
+          <p class="text-xs text-ink-secondary mt-1 leading-relaxed">所有生字同溫習進度都儲存在手機本地。你可以分享 App 連結俾朋友各自使用，或者匯出詞庫檔一齊溫習同一批生字。</p>
+        </div>
+
+        <div class="space-y-2.5">
+          <button onclick="shareAppLink()" class="w-full py-3 px-4 rounded-2xl bg-sage-600 hover:bg-sage-700 text-white text-sm font-semibold flex items-center justify-between transition shadow-2xs">
+            <span class="flex items-center gap-2.5">
+              <i data-lucide="share-2" class="w-4 h-4"></i>
+              複製分享連結 / 分享 App
+            </span>
+            <i data-lucide="chevron-right" class="w-4 h-4 opacity-80"></i>
+          </button>
+
+          <button onclick="exportBackup()" class="w-full py-3 px-4 rounded-2xl bg-cream hover:bg-sage-50 border border-borderLight text-ink-primary text-sm font-semibold flex items-center justify-between transition">
+            <span class="flex items-center gap-2.5">
+              <i data-lucide="download" class="w-4 h-4 text-sage-600"></i>
+              匯出詞庫分享檔 (.json)
+            </span>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-ink-muted"></i>
+          </button>
+
+          <label class="w-full py-3 px-4 rounded-2xl bg-cream hover:bg-sage-50 border border-borderLight text-ink-primary text-sm font-semibold flex items-center justify-between transition cursor-pointer">
+            <span class="flex items-center gap-2.5">
+              <i data-lucide="upload" class="w-4 h-4 text-sage-600"></i>
+              匯入詞庫檔案 (.json)
+            </span>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-ink-muted"></i>
+            <input type="file" id="import-file" accept=".json" onchange="importBackup(event)" class="hidden" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Reset Sample Words / Clear Data -->
+      <div class="bg-white border border-borderLight rounded-3xl p-5 shadow-2xs space-y-3">
+        <h2 class="text-sm font-bold text-ink-primary">其他選項</h2>
+        <button onclick="restoreSampleWords()" class="w-full py-2.5 px-4 rounded-xl bg-cream hover:bg-sage-50 border border-borderLight text-ink-secondary text-xs font-semibold text-left transition">
+          重新加入 6 個精選示範生字
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Mobile Bottom Navigation Bar -->
+  <nav class="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-borderLight pb-safe">
+    <div class="max-w-lg mx-auto grid grid-cols-4 px-2 py-1.5">
+      <button onclick="switchTab('review')" id="nav-review" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-sage-600 font-semibold transition relative">
+        <div class="relative">
+          <i data-lucide="layers" class="w-5 h-5"></i>
+          <span id="nav-due-dot" class="hidden absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-rose-500"></span>
+        </div>
+        <span class="text-[11px] mt-1">溫習</span>
+      </button>
+
+      <button onclick="switchTab('vocab')" id="nav-vocab" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-ink-muted hover:text-ink-primary font-medium transition">
+        <i data-lucide="book-a" class="w-5 h-5"></i>
+        <span class="text-[11px] mt-1">生字庫</span>
+      </button>
+
+      <button onclick="switchTab('add')" id="nav-add" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-ink-muted hover:text-ink-primary font-medium transition">
+        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+        <span class="text-[11px] mt-1">新增</span>
+      </button>
+
+      <button onclick="switchTab('settings')" id="nav-settings" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-ink-muted hover:text-ink-primary font-medium transition">
+        <i data-lucide="settings-2" class="w-5 h-5"></i>
+        <span class="text-[11px] mt-1">設定</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Custom Delete Confirmation Modal (No browser confirm()) -->
+  <div id="delete-modal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white border border-borderLight rounded-3xl max-w-xs w-full p-5 space-y-4 shadow-xl">
+      <div class="space-y-1">
+        <h3 class="text-base font-bold text-ink-primary">確定刪除此生字？</h3>
+        <p class="text-xs text-ink-secondary">刪除後將無法復原「<span id="delete-word-name" class="font-semibold text-ink-primary"></span>」嘅溫習記錄。</p>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button onclick="closeDeleteModal()" class="py-2.5 rounded-xl bg-cream text-ink-secondary text-xs font-semibold">取消</button>
+        <button onclick="confirmDeleteWord()" class="py-2.5 rounded-xl bg-rose-600 text-white text-xs font-semibold">確定刪除</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== STATE & CONSTANTS ====================
+    const STORAGE_KEY = 'lexinote_vocab_v1';
+    const META_KEY = 'lexinote_meta_v1';
+
+    let vocabList = [];
+    let metaData = {
+      accent: 'en-US', // 'en-US' or 'en-GB'
+      streak: 1,
+      lastStudyDate: new Date().toDateString()
+    };
+
+    let currentTab = 'review';
+    let vocabFilter = 'all';
+    let reviewQueue = [];
+    let currentCardIndex = 0;
+    let isFlipped = false;
+    let isExtraPractice = false;
+    let wordIdToDelete = null;
+
+    // 6 Curated Starter Words
+    const SAMPLE_WORDS = [
+      {
+        id: 'sample-1',
+        word: 'serendipity',
+        pos: 'n.',
+        ipa: '/ˌser.ənˈdɪp.ə.ti/',
+        meaning: '意外發現珍奇事物的運氣；機緣巧合',
+        enDef: 'The occurrence of finding valuable or agreeable things not sought for.',
+        example: 'Finding that rare book in a tiny alley shop was pure serendipity.',
+        exampleZh: '喺一條小巷鋪頭搵到嗰本罕見嘅書，純屬機緣巧合。',
+        reps: 0,
+        interval: 0,
+        easeFactor: 2.5,
+        nextReview: Date.now() - 1000,
+        createdAt: Date.now() - 60000
+      },
+      {
+        id: 'sample-2',
+        word: 'resilient',
+        pos: 'adj.',
+        ipa: '/rɪˈzɪl.jənt/',
+        meaning: '有韌性嘅；適應力強、能迅速復原嘅',
+        enDef: 'Able to withstand or recover quickly from difficult conditions.',
+        example: 'Children are often remarkably resilient when adapting to a new environment.',
+        exampleZh: '小朋友適應新環境嗰陣，往往展現出驚人嘅韌性。',
+        reps: 0,
+        interval: 0,
+        easeFactor: 2.5,
+        nextReview: Date.now() - 1000,
+        createdAt: Date.now() - 50000
+      },
+      {
+        id: 'sample-3',
+        word: 'pragmatic',
+        pos: 'adj.',
+        ipa: '/præɡˈmæt.ɪk/',
+        meaning: '務實嘅；講求實際效果嘅',
+        enDef: 'Dealing with things sensibly and realistically in a way that is based on practical considerations.',
+        example: 'We need to take a pragmatic approach to solve this budget issue.',
+        exampleZh: '我哋需要採取務實嘅方法去解決今次嘅預算問題。',
+        reps: 0,
+        interval: 0,
+        easeFactor: 2.5,
+        nextReview: Date.now() - 1000,
+        createdAt: Date.now() - 40000
+      },
+      {
+        id: 'sample-4',
+        word: 'ephemeral',
+        pos: 'adj.',
+        ipa: '/ɪˈfem.ər.əl/',
+        meaning: '短暫嘅；轉瞬即逝嘅',
+        enDef: 'Lasting for a very short time.',
+        example: 'Cherry blossoms are famous for their ephemeral beauty in spring.',
+        exampleZh: '櫻花以春天短暫而燦爛嘅美麗而聞名。',
+        reps: 1,
+        interval: 1,
+        easeFactor: 2.5,
+        nextReview: Date.now() + 86400000,
+        createdAt: Date.now() - 30000
+      },
+      {
+        id: 'sample-5',
+        word: 'eloquent',
+        pos: 'adj.',
+        ipa: '/ˈel.ə.kwənt/',
+        meaning: '雄辯嘅；口才出眾、有說服力嘅',
+        enDef: 'Fluent or persuasive in speaking or writing.',
+        example: 'She delivered an eloquent speech that moved the entire audience.',
+        exampleZh: '佢發表咗一場極具感染力嘅演講，感動咗全場觀眾。',
+        reps: 3,
+        interval: 8,
+        easeFactor: 2.6,
+        nextReview: Date.now() + 8 * 86400000,
+        createdAt: Date.now() - 20000
+      },
+      {
+        id: 'sample-6',
+        word: 'meticulous',
+        pos: 'adj.',
+        ipa: '/məˈtɪk.jə.ləs/',
+        meaning: '一絲不苟嘅；極度細心謹慎嘅',
+        enDef: 'Showing great attention to detail; very careful and precise.',
+        example: 'She kept meticulous records of every expense during the trip.',
+        exampleZh: '佢將旅程中每一筆開支都記錄得一絲不苟。',
+        reps: 0,
+        interval: 0,
+        easeFactor: 2.5,
+        nextReview: Date.now() - 1000,
+        createdAt: Date.now() - 10000
+      }
+    ];
+
+    // ==================== INITIALIZATION & PWA ICON GENERATOR ====================
+    window.addEventListener('DOMContentLoaded', () => {
+      generatePWAIcons();
+      loadData();
+      updateStreak();
+      updateAccentUI();
+      buildReviewQueue();
+      renderAll();
+      lucide.createIcons();
+    });
+
+    function generatePWAIcons() {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Deep forest sage background with subtle rounded corners
+        ctx.fillStyle = '#2C5E4F';
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Cream inner editorial card
+        ctx.fillStyle = '#FAF9F6';
+        ctx.beginPath();
+        ctx.roundRect(76, 76, 360, 360, 72);
+        ctx.fill();
+
+        // Subtle sage border accent inside card
+        ctx.strokeStyle = '#DCE9E4';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.roundRect(96, 96, 320, 320, 56);
+        ctx.stroke();
+
+        // Monogram "LN"
+        ctx.fillStyle = '#2C5E4F';
+        ctx.font = 'bold 148px Inter, -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('LN', 256, 245);
+
+        // Decorative bottom accent bar
+        ctx.fillStyle = '#3B7A67';
+        ctx.beginPath();
+        ctx.roundRect(196, 342, 120, 14, 7);
+        ctx.fill();
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const touchIcon = document.getElementById('app-touch-icon');
+        const favIcon = document.getElementById('app-favicon');
+        if (touchIcon) touchIcon.href = dataUrl;
+        if (favIcon) favIcon.href = dataUrl;
+      } catch (e) {
+        console.warn('Icon generation skipped:', e);
+      }
+    }
+
+    function saveData() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(vocabList));
+        localStorage.setItem(META_KEY, JSON.stringify(metaData));
+      } catch (e) {
+        showToast('儲存失敗：瀏覽器空間可能已滿', true);
+      }
+    }
+
+    function updateStreak() {
+      const today = new Date().toDateString();
+      const yesterday = new Date(Date.now() - 86400000).toDateString();
+      if (metaData.lastStudyDate !== today && metaData.lastStudyDate !== yesterday) {
+        metaData.streak = 1;
+        metaData.lastStudyDate = today;
+        saveData();
+      }
+      document.getElementById('streak-count').textContent = metaData.streak;
+      document.getElementById('stat-streak').textContent = metaData.streak;
+    }
+
+    // ==================== NAVIGATION ====================
+    function switchTab(tabName) {
+      currentTab = tabName;
+      ['review', 'vocab', 'add', 'settings'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tabName);
+        const navBtn = document.getElementById(`nav-${t}`);
+        if (t === tabName) {
+          navBtn.classList.remove('text-ink-muted', 'font-medium');
+          navBtn.classList.add('text-sage-600', 'font-semibold');
+        } else {
+          navBtn.classList.add('text-ink-muted', 'font-medium');
+          navBtn.classList.remove('text-sage-600', 'font-semibold');
+        }
+      });
+
+      if (tabName === 'review') {
+        buildReviewQueue();
+        renderReviewStage();
+      } else if (tabName === 'vocab') {
+        renderVocabList();
+      } else if (tabName === 'settings') {
+        renderStats();
+      }
+      lucide.createIcons();
+    }
+
+    function renderAll() {
+      updateDueIndicators();
+      renderReviewStage();
+      renderVocabList();
+      renderStats();
+    }
+
+    // ==================== TEXT-TO-SPEECH (TTS) ====================
+    function toggleAccent() {
+      metaData.accent = metaData.accent === 'en-US' ? 'en-GB' : 'en-US';
+      saveData();
+      updateAccentUI();
+      showToast(`已切換為${metaData.accent === 'en-US' ? '美式 (US)' : '英式 (UK)'}發音`);
+    }
+
+    function updateAccentUI() {
+      document.getElementById('accent-label').textContent = metaData.accent === 'en-US' ? 'US 美式' : 'UK 英式';
+    }
+
+    function speakText(text, rate = 0.95) {
+      if (!text || !('speechSynthesis' in window)) {
+        showToast('你嘅瀏覽器暫不支援語音朗讀');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = metaData.accent;
+      utterance.rate = rate;
+
+      // Try to pick a natural sounding voice matching the accent
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(v => v.lang === metaData.accent && (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel')))
+        || voices.find(v => v.lang.startsWith(metaData.accent));
+      if (preferredVoice) utterance.voice = preferredVoice;
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function speakCurrentWord() {
+      const card = reviewQueue[currentCardIndex];
+      if (card) speakText(card.word, 0.9);
+    }
+
+    function speakCurrentExample() {
+      const card = reviewQueue[currentCardIndex];
+      if (card && card.example) speakText(card.example, 0.95);
+    }
+
+    // ==================== SPACED REPETITION (SM-2 INSPIRED) ====================
+    function getDueWords() {
+      const now = Date.now();
+      return vocabList.filter(w => w.nextReview <= now).sort((a, b) => a.nextReview - b.nextReview);
+    }
+
+    function buildReviewQueue() {
+      const due = getDueWords();
+      if (due.length > 0) {
+        isExtraPractice = false;
+        reviewQueue = due;
+      } else if (!isExtraPractice) {
+        reviewQueue = [];
+      }
+      currentCardIndex = 0;
+      isFlipped = false;
+      updateDueIndicators();
+    }
+
+    function practiceAllMode() {
+      if (vocabList.length === 0) {
+        showToast('生字庫仲未有生字，請先新增！');
+        switchTab('add');
+        return;
+      }
+      isExtraPractice = true;
+      reviewQueue = [...vocabList].sort(() => Math.random() - 0.5);
+      currentCardIndex = 0;
+      isFlipped = false;
+      renderReviewStage();
+    }
+
+    function updateDueIndicators() {
+      const dueCount = getDueWords().length;
+      document.getElementById('due-badge-circle').textContent = dueCount;
+      document.getElementById('nav-due-dot').classList.toggle('hidden', dueCount === 0);
+
+      const statusText = document.getElementById('review-status-text');
+      const extraBtn = document.getElementById('practice-extra-btn');
+
+      if (dueCount > 0) {
+        statusText.textContent = `仲有 ${dueCount} 個生字等緊你溫習`;
+        extraBtn.classList.add('hidden');
+      } else if (isExtraPractice && reviewQueue.length > 0) {
+        statusText.textContent = `自由重溫模式 (${currentCardIndex + 1}/${reviewQueue.length})`;
+        extraBtn.classList.add('hidden');
+      } else {
+        statusText.textContent = '今日所有到期生字已溫習完畢！';
+        extraBtn.classList.toggle('hidden', vocabList.length === 0);
+      }
+    }
+
+    function calculateNextSRS(word, rating) {
+      // rating: 1 = Again (忘記), 2 = Hard (困難), 3 = Good (記得), 4 = Easy (太易)
+      let reps = word.reps || 0;
+      let interval = word.interval || 0; // in days
+      let ease = word.easeFactor || 2.5;
+      const DAY_MS = 86400000;
+
+      if (rating === 1) {
+        // Forgot: reset progress, review again in 1 minute
+        reps = 0;
+        interval = 0;
+        ease = Math.max(1.3, ease - 0.2);
+        return {
+          reps,
+          interval,
+          easeFactor: ease,
+          nextReview: Date.now() + 60 * 1000,
+          label: '1 分鐘後'
+        };
+      }
+
+      if (rating === 2) {
+        // Hard
+        ease = Math.max(1.3, ease - 0.15);
+        if (reps === 0) {
+          interval = 0.5; // 12 hours
+        } else {
+          interval = Math.max(1, Math.round(interval * 1.2));
+        }
+        reps += 1;
+      } else if (rating === 3) {
+        // Good
+        if (reps === 0) {
+          interval = 1;
+        } else if (reps === 1) {
+          interval = 3;
+        } else {
+          interval = Math.round(interval * ease);
+        }
+        reps += 1;
+      } else if (rating === 4) {
+        // Easy
+        ease += 0.15;
+        if (reps === 0) {
+          interval = 4;
+        } else if (reps === 1) {
+          interval = 6;
+        } else {
+          interval = Math.round(interval * ease * 1.3);
+        }
+        reps += 1;
+      }
+
+      const label = interval < 1 ? `${Math.round(interval * 24)} 小時` : `${interval} 天後`;
+      return {
+        reps,
+        interval,
+        easeFactor: ease,
+        nextReview: Date.now() + interval * DAY_MS,
+        label
+      };
+    }
+
+    function renderReviewStage() {
+      updateDueIndicators();
+      const stage = document.getElementById('flashcard-stage');
+      const completeState = document.getElementById('review-complete-state');
+
+      if (reviewQueue.length === 0 || currentCardIndex >= reviewQueue.length) {
+        stage.classList.add('hidden');
+        completeState.classList.remove('hidden');
+        return;
+      }
+
+      stage.classList.remove('hidden');
+      completeState.classList.add('hidden');
+
+      const card = reviewQueue[currentCardIndex];
+      isFlipped = false;
+
+      // Reset Flip Visuals
+      const inner = document.getElementById('flashcard-inner');
+      inner.classList.remove('rotate-y-180');
+      document.getElementById('flip-prompt-area').classList.remove('hidden');
+      document.getElementById('srs-controls').classList.add('hidden');
+
+      // Populate Card Front & Back
+      document.getElementById('fc-word').textContent = card.word;
+      document.getElementById('fc-ipa').textContent = card.ipa || '';
+      const frontPos = document.getElementById('fc-front-pos');
+      frontPos.textContent = card.pos || '';
+      frontPos.classList.toggle('hidden', !card.pos);
+
+      document.getElementById('fc-back-word').textContent = card.word;
+      document.getElementById('fc-back-ipa').textContent = card.ipa || '';
+      document.getElementById('fc-pos').textContent = card.pos || 'word';
+      document.getElementById('fc-pos').classList.toggle('hidden', !card.pos);
+      document.getElementById('fc-meaning').textContent = card.meaning;
+
+      const enDefEl = document.getElementById('fc-en-def');
+      enDefEl.textContent = card.enDef || '';
+      enDefEl.classList.toggle('hidden', !card.enDef);
+
+      document.getElementById('fc-example').textContent = card.example || '暫無例句';
+      document.getElementById('fc-example-zh').textContent = card.exampleZh || '';
+
+      // Mastery status badge
+      const pill = document.getElementById('fc-status-pill');
+      if (card.interval >= 7) {
+        pill.textContent = '已掌握 · 鞏固中';
+        pill.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sage-100 text-sage-700';
+      } else if (card.reps > 0) {
+        pill.textContent = `學習中 · 第 ${card.reps} 次溫習`;
+        pill.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700';
+      } else {
+        pill.textContent = '新學單字';
+        pill.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sage-50 text-sage-600';
+      }
+
+      // Preview interval labels on the 4 SRS buttons
+      [1, 2, 3, 4].forEach(r => {
+        const preview = calculateNextSRS(card, r);
+        document.getElementById(`int-${r}`).textContent = preview.label;
+      });
+    }
+
+    function flipCard() {
+      if (isFlipped) return;
+      isFlipped = true;
+      document.getElementById('flashcard-inner').classList.add('rotate-y-180');
+      document.getElementById('flip-prompt-area').classList.add('hidden');
+      document.getElementById('srs-controls').classList.remove('hidden');
+      speakCurrentWord();
+    }
+
+    function rateCard(rating) {
+      const card = reviewQueue[currentCardIndex];
+      if (!card) return;
+
+      const updatedSRS = calculateNextSRS(card, rating);
+      const idx = vocabList.findIndex(w => w.id === card.id);
+      if (idx !== -1) {
+        vocabList[idx] = {
+          ...vocabList[idx],
+          reps: updatedSRS.reps,
+          interval: updatedSRS.interval,
+          easeFactor: updatedSRS.easeFactor,
+          nextReview: updatedSRS.nextReview
+        };
+      }
+
+      // Record daily streak
+      const today = new Date().toDateString();
+      if (metaData.lastStudyDate !== today) {
+        metaData.streak += 1;
+        metaData.lastStudyDate = today;
+      }
+
+      saveData();
+
+      // If user clicked "Again" (1), re-queue card at the end of current session
+      if (rating === 1) {
+        reviewQueue.push(vocabList[idx]);
+      }
+
+      currentCardIndex++;
+      renderReviewStage();
+      renderVocabList();
+    }
+
+    // ==================== VOCABULARY LIST MANAGEMENT ====================
+    function setVocabFilter(filter) {
+      vocabFilter = filter;
+      document.querySelectorAll('.filter-pill').forEach(btn => {
+        btn.classList.remove('bg-sage-600', 'text-white');
+        btn.classList.add('bg-white', 'border', 'border-borderLight', 'text-ink-secondary');
+      });
+      const activeBtn = document.getElementById(`filter-${filter}`);
+      activeBtn.classList.remove('bg-white', 'border', 'border-borderLight', 'text-ink-secondary');
+      activeBtn.classList.add('bg-sage-600', 'text-white');
+      renderVocabList();
+    }
+
+    function renderVocabList() {
+      const query = (document.getElementById('vocab-search')?.value || '').trim().toLowerCase();
+      const now = Date.now();
+
+      // Update filter counts
+      const dueCount = vocabList.filter(w => w.nextReview <= now).length;
+      const masteredCount = vocabList.filter(w => w.interval >= 7).length;
+      const learningCount = vocabList.filter(w => w.interval < 7 && w.nextReview > now).length;
+
+      document.getElementById('count-all').textContent = vocabList.length;
+      document.getElementById('count-due').textContent = dueCount;
+      document.getElementById('count-learning').textContent = learningCount;
+      document.getElementById('count-mastered').textContent = masteredCount;
+
+      // Filter list
+      let filtered = vocabList.filter(item => {
+        const matchesQuery = !query ||
+          item.word.toLowerCase().includes(query) ||
+          item.meaning.toLowerCase().includes(query);
+
+        if (!matchesQuery) return false;
+        if (vocabFilter === 'due') return item.nextReview <= now;
+        if (vocabFilter === 'mastered') return item.interval >= 7;
+        if (vocabFilter === 'learning') return item.interval < 7 && item.nextReview > now;
+        return true;
+      });
+
+      // Sort newest first
+      filtered.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      const container = document.getElementById('vocab-list-container');
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white border border-borderLight rounded-3xl p-8 text-center space-y-2">
+            <p class="text-sm font-semibold text-ink-primary">搵唔到相關生字</p>
+            <p class="text-xs text-ink-muted">試下轉另一個篩選條件，或者撳下方「新增」加入新單字。</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(item => {
+        const isDue = item.nextReview <= now;
+        const isMastered = item.interval >= 7;
+        let badgeHtml = '';
+
+        if (isMastered) {
+          badgeHtml = `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sage-100 text-sage-700">已掌握</span>`;
+        } else if (isDue) {
+          badgeHtml = `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">待溫習</span>`;
+        } else {
+          const daysLeft = Math.max(1, Math.ceil((item.nextReview - now) / 86400000));
+          badgeHtml = `<span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-cream text-ink-muted">${daysLeft}日後溫習</span>`;
+        }
+
+        return `
+          <div class="bg-white border border-borderLight rounded-2xl p-4 shadow-2xs space-y-2.5 transition hover:border-sage-500/40">
+            <div class="flex items-start justify-between gap-2">
+              <div class="space-y-0.5">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h3 class="text-base font-bold text-ink-primary">${escapeHTML(item.word)}</h3>
+                  ${item.pos ? `<span class="text-[11px] font-semibold text-sage-700 bg-sage-50 px-1.5 py-0.5 rounded">${escapeHTML(item.pos)}</span>` : ''}
+                  ${badgeHtml}
+                </div>
+                ${item.ipa ? `<p class="text-xs font-mono text-ink-muted">${escapeHTML(item.ipa)}</p>` : ''}
+              </div>
+
+              <div class="flex items-center gap-1 shrink-0">
+                <button onclick="speakText('${escapeAttr(item.word)}', 0.9)" class="p-2 rounded-xl bg-cream hover:bg-sage-50 text-ink-primary hover:text-sage-600 transition" title="朗讀發音">
+                  <i data-lucide="volume-2" class="w-4 h-4"></i>
+                </button>
+                <button onclick="editWord('${item.id}')" class="p-2 rounded-xl bg-cream hover:bg-sage-50 text-ink-secondary hover:text-ink-primary transition" title="編輯">
+                  <i data-lucide="pencil" class="w-4 h-4"></i>
+                </button>
+    // ==================== ADD / EDIT & FREE DICTIONARY + TRANSLATION API ====================
+    function mapPartOfSpeech(posRaw) {
+      if (!posRaw) return '';
+      const map = {
+        noun: 'n.',
+        verb: 'v.',
+        adjective: 'adj.',
+        adverb: 'adv.',
+        pronoun: 'pron.',
+        preposition: 'prep.',
+        conjunction: 'conj.',
+        interjection: 'interj.'
+      };
+      return map[posRaw.toLowerCase()] || posRaw;
+    }
+
+    async function translateToTraditionalChinese(text) {
+      if (!text) return '';
+      try {
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|zh-TW`;
+        const res = await fetch(url);
+        if (!res.ok) return '';
+        const data = await res.json();
+        const translated = data?.responseData?.translatedText || '';
+        // Filter out API warning messages if quota exceeded
+        if (translated.toUpperCase().includes('MYMEMORY WARNING')) return '';
+        return translated.trim();
+      } catch (e) {
+        return '';
+      }
+    }
+
+    async function autoFillFromDictionary() {
+      const wordInput = document.getElementById('input-word').value.trim();
+      if (!wordInput) {
+        showToast('請先輸入英文生字');
+        document.getElementById('input-word').focus();
+        return;
+      }
+
+      const btn = document.getElementById('dict-autofill-btn');
+      const btnText = document.getElementById('dict-btn-text');
+      btn.disabled = true;
+      btnText.textContent = '查詢中...';
+
+      let ipa = '';
+      let pos = '';
+      let enDef = '';
+      let example = '';
+
+      try {
+        // 1. Fetch Free Dictionary API (dictionaryapi.dev)
+        const dictRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(wordInput.toLowerCase())}`);
+        if (dictRes.ok) {
+          const dictData = await dictRes.json();
+          const entry = dictData[0];
+
+          // Extract best IPA
+          ipa = entry.phonetic || (entry.phonetics?.find(p => p.text)?.text) || '';
+
+          // Extract primary part of speech, English definition, and first available example sentence
+          if (entry.meanings && entry.meanings.length > 0) {
+            const primaryMeaning = entry.meanings[0];
+            pos = mapPartOfSpeech(primaryMeaning.partOfSpeech);
+            enDef = primaryMeaning.definitions?.[0]?.definition || '';
+
+            // Search across meanings for a good example sentence
+            for (const m of entry.meanings) {
+              const defWithEx = m.definitions?.find(d => d.example);
+              if (defWithEx) {
+                example = defWithEx.example;
+                if (!pos) pos = mapPartOfSpeech(m.partOfSpeech);
+                break;
+              }
+            }
+          }
+        }
+
+        // 2. Fetch Traditional Chinese translations in parallel
+        const [zhWord, zhExample] = await Promise.all([
+          translateToTraditionalChinese(wordInput),
+          example ? translateToTraditionalChinese(example) : Promise.resolve('')
+        ]);
+
+        if (pos) document.getElementById('input-pos').value = pos;
+        if (ipa) document.getElementById('input-ipa').value = ipa;
+        if (zhWord) document.getElementById('input-meaning').value = zhWord;
+        if (enDef) document.getElementById('input-en-def').value = enDef;
+        if (example) document.getElementById('input-example').value = example;
+        if (zhExample) document.getElementById('input-example-zh').value = zhExample;
+
+        if (ipa || enDef || zhWord) {
+          showToast('已自動填好詞典資料！');
+        } else {
+          showToast('詞典暫無此字條目，請手動填寫解釋');
+        }
+      } catch (err) {
+        showToast('網絡連線不穩，請手動輸入資料');
+      } finally {
+        btn.disabled = false;
+        btnText.textContent = '自動查詢詞典';
+      }
+    }
+
+    function saveWord() {
+      const id = document.getElementById('edit-word-id').value;
+      const word = document.getElementById('input-word').value.trim();
+      const pos = document.getElementById('input-pos').value.trim();
+      const ipa = document.getElementById('input-ipa').value.trim();
+      const meaning = document.getElementById('input-meaning').value.trim();
+      const enDef = document.getElementById('input-en-def').value.trim();
+      const example = document.getElementById('input-example').value.trim();
+      const exampleZh = document.getElementById('input-example-zh').value.trim();
+
+      if (!word || !meaning) {
+        showToast('請至少填寫「英文生字」同「中文解釋」');
+        return;
+      }
+
+      if (id) {
+        // Update existing
+        const idx = vocabList.findIndex(w => w.id === id);
+        if (idx !== -1) {
+          vocabList[idx] = {
+            ...vocabList[idx],
+            word, pos, ipa, meaning, enDef, example, exampleZh
+          };
+        }
+        showToast('已更新生字資料');
+      } else {
+        // Check duplicate
+        const exists = vocabList.some(w => w.word.toLowerCase() === word.toLowerCase());
+        if (exists) {
+          showToast('生字庫已經有呢個單字喇！');
+          return;
+        }
+
+        const newWord = {
+          id: 'word-' + Date.now(),
+          word,
+          pos,
+          ipa,
+          meaning,
+          enDef,
+          example,
+          exampleZh,
+          reps: 0,
+          interval: 0,
+          easeFactor: 2.5,
+          nextReview: Date.now() - 1000, // Ready for immediate review
+          createdAt: Date.now()
+        };
+        vocabList.unshift(newWord);
+        showToast('已加入生字庫，可以開始溫習！');
+      }
+
+      saveData();
+      resetForm();
+      updateDueIndicators();
+      switchTab('vocab');
+    }
+
+    function editWord(id) {
+      const item = vocabList.find(w => w.id === id);
+      if (!item) return;
+
+      document.getElementById('edit-word-id').value = item.id;
+      document.getElementById('input-word').value = item.word;
+      document.getElementById('input-pos').value = item.pos || '';
+      document.getElementById('input-ipa').value = item.ipa || '';
+      document.getElementById('input-meaning').value = item.meaning;
+      document.getElementById('input-en-def').value = item.enDef || '';
+      document.getElementById('input-example').value = item.example || '';
+      document.getElementById('input-example-zh').value = item.exampleZh || '';
+
+      document.getElementById('form-title').textContent = '編輯生字資料';
+      document.getElementById('save-btn-text').textContent = '儲存修改';
+      document.getElementById('cancel-edit-btn').classList.remove('hidden');
+
+      switchTab('add');
+    }
+
+    function resetForm() {
+      document.getElementById('edit-word-id').value = '';
+      document.getElementById('input-word').value = '';
+      document.getElementById('input-pos').value = '';
+      document.getElementById('input-ipa').value = '';
+      document.getElementById('input-meaning').value = '';
+      document.getElementById('input-en-def').value = '';
+      document.getElementById('input-example').value = '';
+      document.getElementById('input-example-zh').value = '';
+
+      document.getElementById('form-title').textContent = '新增英文生字';
+      document.getElementById('save-btn-text').textContent = '儲存到生字庫';
+      document.getElementById('cancel-edit-btn').classList.add('hidden');
+    }
+    // ==================== SETTINGS, STATS, SHARE & BACKUP ====================
+    function renderStats() {
+      document.getElementById('stat-total').textContent = vocabList.length;
+      document.getElementById('stat-mastered').textContent = vocabList.filter(w => w.interval >= 7).length;
+      document.getElementById('stat-streak').textContent = metaData.streak;
+    }
+
+    async function shareAppLink() {
+      const shareUrl = window.location.href;
+      const shareData = {
+        title: 'LexiNote · 英文生字遺忘曲線筆記',
+        text: '推薦你用呢個手機英文生字簿 App，支援遺忘曲線抽認卡同自動查詞典！',
+        url: shareUrl
+      };
+
+      if (navigator.share && shareUrl.startsWith('http')) {
+        try {
+          await navigator.share(shareData);
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+        }
+      }
+
+      // Fallback: copy URL using textarea + execCommand for universal compatibility
+      const tempInput = document.createElement('textarea');
+      tempInput.value = shareUrl;
+      tempInput.style.position = 'fixed';
+      tempInput.style.opacity = '0';
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      try {
+        document.execCommand('copy');
+        showToast('已複製 App 網址，可以直接貼上發送俾朋友！');
+      } catch (e) {
+        showToast('請直接複製瀏覽器上方網址分享俾朋友');
+      }
+      document.body.removeChild(tempInput);
+    }
+
+    function exportBackup() {
+      const backupObj = {
+        app: 'LexiNote',
+        exportedAt: new Date().toISOString(),
+        vocabList,
+        metaData
+      };
+      const blob = new Blob([JSON.stringify(backupObj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `LexiNote_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('已匯出備份檔案！');
+    }
+
+    function importBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!Array.isArray(parsed.vocabList)) {
+            throw new Error('Invalid format');
+          }
+          vocabList = parsed.vocabList;
+          if (parsed.metaData) {
+            metaData = { ...metaData, ...parsed.metaData };
+          }
+          saveData();
+          buildReviewQueue();
+          renderAll();
+          showToast(`成功還原 ${vocabList.length} 個生字！`);
+        } catch (err) {
+          showToast('備份檔案格式不正確');
+        }
+        event.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    function restoreSampleWords() {
+      let added = 0;
+      SAMPLE_WORDS.forEach(sample => {
+        const exists = vocabList.some(w => w.word.toLowerCase() === sample.word.toLowerCase());
+        if (!exists) {
+          vocabList.push({ ...sample, id: 'sample-' + Date.now() + Math.random(), nextReview: Date.now() - 1000 });
+          added++;
+        }
+      });
+      if (added > 0) {
+        saveData();
+        renderAll();
+        showToast(`已加入 ${added} 個精選示範生字`);
+      } else {
+        showToast('示範生字已經喺你嘅生字庫入面喇');
+      }
+    }
+
+    // ==================== UTILITIES ====================
+    let toastTimer = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-message').textContent = msg;
+      toast.classList.remove('opacity-0', '-translate-y-2');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('opacity-0', '-translate-y-2');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 2600);
+    }
+
+    function escapeHTML(str) {
+      if (!str) return '';
+      return str.replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    function escapeAttr(str) {
+      if (!str) return '';
+      return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>
